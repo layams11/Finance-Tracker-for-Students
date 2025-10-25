@@ -4,6 +4,7 @@ import { WalletIcon } from './Icons';
 
 interface ExpenseTrackerProps {
   expenses: Expense[];
+  spendingTarget: number;
 }
 
 const categoryColors: Record<ExpenseCategory, string> = {
@@ -24,7 +25,7 @@ const categoryEmojis: Record<ExpenseCategory, string> = {
     'Other': '🛒'
 }
 
-const ExpenseTracker: React.FC<ExpenseTrackerProps> = ({ expenses }) => {
+const ExpenseTracker: React.FC<ExpenseTrackerProps> = ({ expenses, spendingTarget }) => {
 
   const spendingByCategory = useMemo(() => {
     return expenses.reduce((acc, expense) => {
@@ -41,12 +42,33 @@ const ExpenseTracker: React.FC<ExpenseTrackerProps> = ({ expenses }) => {
       return [...expenses].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
   }, [expenses]);
 
+  const budgetUsagePercentage = spendingTarget > 0 ? (totalExpenses / spendingTarget) * 100 : 0;
+  const isOverBudget = budgetUsagePercentage > 100;
+
   return (
     <div className="bg-slate-800/50 backdrop-blur-sm rounded-lg p-5 shadow-lg border border-slate-700">
       <div className="flex items-center space-x-2 mb-4">
         <WalletIcon className="h-6 w-6 text-indigo-400" />
         <h3 className="text-xl font-bold text-white">Monthly Expense Tracker</h3>
       </div>
+      
+      {spendingTarget > 0 && (
+        <div className="mb-6 bg-slate-900/50 p-4 rounded-lg">
+          <div className="flex justify-between items-end text-white mb-1">
+            <span className="font-bold text-2xl">₹{totalExpenses.toFixed(2)}</span>
+            <span className="text-sm text-slate-400">spent from ₹{spendingTarget.toFixed(2)} spending target</span>
+          </div>
+          <div className="w-full bg-slate-700 rounded-full h-3">
+            <div 
+              className={`h-3 rounded-full transition-all duration-500 ${isOverBudget ? 'bg-gradient-to-r from-red-500 to-orange-500' : 'bg-gradient-to-r from-orange-500 to-amber-500'}`} 
+              style={{ width: `${Math.min(budgetUsagePercentage, 100)}%` }}>
+            </div>
+          </div>
+           {isOverBudget && (
+                <p className="text-xs text-red-400 mt-1.5 text-right">You've exceeded your spending target!</p>
+            )}
+        </div>
+      )}
       
       {expenses.length > 0 ? (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -55,17 +77,19 @@ const ExpenseTracker: React.FC<ExpenseTrackerProps> = ({ expenses }) => {
                 <h4 className="font-semibold mb-2 text-slate-200">Spending by Category</h4>
                 <div className="space-y-3">
                     {Object.entries(spendingByCategory)
-                        .sort(([, a], [, b]) => b - a)
+                        // FIX: Cast values to number for sorting as Object.entries may return `unknown`.
+                        .sort(([, a], [, b]) => (b as number) - (a as number))
                         .map(([category, amount]) => (
                         <div key={category}>
                             <div className="flex justify-between mb-1 text-sm font-medium text-slate-300">
                                 <span>{categoryEmojis[category as ExpenseCategory]} {category}</span>
-                                <span>₹{amount.toFixed(2)}</span>
+                                {/* FIX: Cast amount to number as Object.entries may return `unknown` for values. */}
+                                <span>₹{(amount as number).toFixed(2)}</span>
                             </div>
                             <div className="w-full bg-slate-700 rounded-full h-2.5">
                                 <div 
                                     className={`${categoryColors[category as ExpenseCategory]} h-2.5 rounded-full`} 
-                                    style={{width: `${(amount / totalExpenses) * 100}%`}}>
+                                    style={{width: `${((amount as number) / totalExpenses) * 100}%`}}>
                                 </div>
                             </div>
                         </div>

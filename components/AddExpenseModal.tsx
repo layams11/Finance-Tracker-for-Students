@@ -4,7 +4,7 @@ import { XIcon } from './Icons';
 
 interface AddExpenseModalProps {
   onClose: () => void;
-  onAddExpense: (expense: Omit<Expense, 'id'>) => void;
+  onAddExpense: (expense: Omit<Expense, 'id'>, isRecurring: boolean, dayOfMonth?: number) => void;
 }
 
 const categories: ExpenseCategory[] = ['Food', 'Transport', 'Education', 'Utilities', 'Fun', 'Other'];
@@ -13,16 +13,26 @@ const AddExpenseModal: React.FC<AddExpenseModalProps> = ({ onClose, onAddExpense
   const [name, setName] = useState('');
   const [amount, setAmount] = useState('');
   const [category, setCategory] = useState<ExpenseCategory>('Food');
+  const [isRecurring, setIsRecurring] = useState(false);
+  const [dayOfMonth, setDayOfMonth] = useState(1);
   
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (name && amount && category) {
-      onAddExpense({
-        name,
-        amount: parseFloat(amount),
-        category,
-        date: new Date().toISOString(),
-      });
+      if (isRecurring && (dayOfMonth < 1 || dayOfMonth > 31)) {
+        alert("Please enter a valid day of the month (1-31).");
+        return;
+      }
+      onAddExpense(
+        {
+            name,
+            amount: parseFloat(amount),
+            category,
+            date: new Date().toISOString(),
+        }, 
+        isRecurring, 
+        isRecurring ? dayOfMonth : undefined
+      );
       onClose();
     }
   };
@@ -50,6 +60,34 @@ const AddExpenseModal: React.FC<AddExpenseModalProps> = ({ onClose, onAddExpense
                     {categories.map(cat => <option key={cat} value={cat}>{cat}</option>)}
                 </select>
             </div>
+          </div>
+          <div className="space-y-2 rounded-md p-3 bg-slate-900/50">
+            <div className="flex items-center">
+                <input
+                    id="isRecurring"
+                    type="checkbox"
+                    checked={isRecurring}
+                    onChange={(e) => setIsRecurring(e.target.checked)}
+                    className="h-4 w-4 rounded border-slate-500 bg-slate-700 text-indigo-600 focus:ring-indigo-500"
+                />
+                <label htmlFor="isRecurring" className="ml-2 block text-sm text-slate-300">
+                    Make this a recurring monthly expense
+                </label>
+            </div>
+            {isRecurring && (
+                 <div>
+                    <label className="block text-sm font-medium text-slate-400">Day of Month</label>
+                    <input 
+                        type="number" 
+                        value={dayOfMonth} 
+                        onChange={e => setDayOfMonth(parseInt(e.target.value))} 
+                        min="1" 
+                        max="31"
+                        className="mt-1 block w-full bg-slate-700 border-slate-600 rounded-md shadow-sm p-2 text-white" 
+                        required 
+                    />
+                </div>
+            )}
           </div>
           <div className="flex justify-end space-x-2 pt-4">
             <button type="button" onClick={onClose} className="px-4 py-2 rounded-md bg-slate-600 hover:bg-slate-500">Cancel</button>

@@ -1,3 +1,5 @@
+
+// FIX: Removed circular import of 'Goal' type.
 export interface Goal {
   id: string;
   name: string;
@@ -27,4 +29,12 @@ export interface Expense {
     category: ExpenseCategory;
     amount: number;
     date: string;
+}
+
+export interface RecurringExpense {
+  id: string;
+  name: string;
+  category: ExpenseCategory;
+  amount: number;
+  dayOfMonth: number;
 }

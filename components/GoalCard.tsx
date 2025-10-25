@@ -4,9 +4,10 @@ import type { Goal } from '../types';
 interface GoalCardProps {
   goal: Goal;
   onWithdrawClick: (goal: Goal) => void;
+  onContributeClick: (goalId: string) => void;
 }
 
-const GoalCard: React.FC<GoalCardProps> = ({ goal, onWithdrawClick }) => {
+const GoalCard: React.FC<GoalCardProps> = ({ goal, onWithdrawClick, onContributeClick }) => {
   const progress = (goal.savedAmount / goal.targetAmount) * 100;
   const isCompleted = goal.savedAmount >= goal.targetAmount;
 
@@ -31,9 +32,20 @@ const GoalCard: React.FC<GoalCardProps> = ({ goal, onWithdrawClick }) => {
         </div>
         <p className="text-xs text-slate-400 mt-2">Target: {new Date(goal.targetDate).toLocaleDateString()}</p>
       </div>
-      <div className="mt-6">
-        <button onClick={() => onWithdrawClick(goal)} disabled={goal.savedAmount <= 0} className="w-full py-2 px-4 bg-slate-700 text-white rounded-md hover:bg-slate-600 disabled:bg-slate-800 disabled:text-slate-500 disabled:cursor-not-allowed font-semibold">
-          Withdraw
+      <div className="mt-6 grid grid-cols-2 gap-2">
+        <button 
+            onClick={() => onContributeClick(goal.id)} 
+            disabled={isCompleted} 
+            className="w-full py-2 px-4 bg-green-600 text-white rounded-md hover:bg-green-500 disabled:bg-slate-700 disabled:text-slate-500 disabled:cursor-not-allowed font-semibold text-sm"
+        >
+            Save ₹{goal.monthlyContribution}
+        </button>
+        <button 
+            onClick={() => onWithdrawClick(goal)} 
+            disabled={goal.savedAmount <= 0} 
+            className="w-full py-2 px-4 bg-slate-700 text-white rounded-md hover:bg-slate-600 disabled:bg-slate-800 disabled:text-slate-500 disabled:cursor-not-allowed font-semibold text-sm"
+        >
+            Withdraw
         </button>
       </div>
     </div>

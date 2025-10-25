@@ -25,11 +25,17 @@ export const getFinancialInsights = async (
     transactions: Transaction[], 
     expenses: Expense[], 
     allowance: number,
-    monthlyBudget: number
+    spendingTarget: number,
+    contributionsThisMonth: number
 ): Promise<string> => {
   if (goals.length === 0 && transactions.length === 0 && expenses.length === 0) {
     return "Start by creating a savings goal or adding an expense to get personalized insights!";
   }
+    
+  const totalExpenses = expenses.reduce((sum, exp) => sum + exp.amount, 0);
+  const remainingSpendingMoney = spendingTarget - totalExpenses;
+  const personalSavingsPot = allowance - spendingTarget;
+  const availablePersonalSavings = personalSavingsPot - contributionsThisMonth;
 
   const withdrawalReasons = transactions
     .filter(t => t.type === 'withdrawal' && t.reason)
@@ -37,8 +43,6 @@ export const getFinancialInsights = async (
     .join(', ');
     
   const goalsSummary = goals.map(g => `${g.name} (₹${g.savedAmount}/₹${g.targetAmount})`).join(', ');
-
-  const totalExpenses = expenses.reduce((sum, exp) => sum + exp.amount, 0);
 
   const expenseByCategory = expenses.reduce((acc, expense) => {
     acc[expense.category] = (acc[expense.category] || 0) + expense.amount;
@@ -49,20 +53,38 @@ export const getFinancialInsights = async (
     .map(([category, total]) => `${category}: ₹${total.toFixed(2)}`)
     .join(', ');
 
-  const budgetSummary = monthlyBudget > 0 
-    ? `They have a monthly budget of ₹${monthlyBudget} and have spent ₹${totalExpenses.toFixed(2)} so far.`
-    : 'They have not set a monthly budget.';
+  const financialStatusSummary = `
+      - Total Monthly Allowance: ₹${allowance.toFixed(2)}
+      - Student's Monthly Spending Target: ₹${spendingTarget.toFixed(2)}
+      - Automatic Personal Savings Pot (Allowance - Target): ₹${personalSavingsPot.toFixed(2)}
+      ---
+      - Spent on Expenses: ₹${totalExpenses.toFixed(2)}
+      - Remaining Spending Money: ₹${remainingSpendingMoney.toFixed(2)}
+      ---
+      - Contributed to Specific Savings Goals: ₹${contributionsThisMonth.toFixed(2)}
+      - Remaining in Personal Savings Pot: ₹${availablePersonalSavings.toFixed(2)}
+    `;
 
   try {
     const prompt = `
-      Analyze this student's financial data (all amounts in INR).
-      - Monthly Allowance: ₹${allowance}
-      - Spending & Budget: ${budgetSummary}
+      You are a friendly financial advisor for a college student in India. Analyze the following financial data for the month (all amounts in INR). The student has a "Pay Yourself First" budget: they set a spending target, and the rest of their allowance goes into a personal savings pot for their goals.
+
+      Financial Overview:
+      ${financialStatusSummary}
+
+      Detailed Breakdown:
       - Savings Goals: ${goalsSummary || 'None'}
       - Spending by Category: ${expenseSummary || 'None'}
-      - Recent withdrawal reasons from savings: ${withdrawalReasons || 'None'}
+      - Reasons for withdrawing from savings: ${withdrawalReasons || 'None'}
 
-      Provide a short, motivational, and helpful financial insight (max 2-3 sentences) for a college student in India. Be encouraging and provide one actionable tip. For example, mention their highest spending category, praise good saving discipline, comment on their budget adherence, or suggest areas for improvement based on spending or withdrawals.
+      Based on this, provide a short, motivational, and highly actionable financial insight (max 3-4 sentences). Your goal is to help the student stick to their *spending target* and utilize their *savings pot* effectively.
+
+      Instructions:
+      1.  Look at the 'Remaining Spending Money'. If it's positive, praise them for staying within their target. If it's negative, they've overspent their target; be encouraging about getting back on track.
+      2.  Identify their highest spending category from the breakdown.
+      3.  Provide one *very specific and practical tip* to reduce spending in that category to help them meet their *spending target*. For example, instead of "spend less on food," suggest "try the university canteen for lunch twice a week instead of ordering out."
+      4.  Acknowledge their savings. If they contributed a good amount, commend their discipline. If contributions are low, gently suggest that sticking to their spending target will free up more money for their goals.
+      5.  Keep the tone encouraging, not critical. Focus on the strategy of separating spending and saving.
     `;
     const response = await ai.models.generateContent({
         model: 'gemini-2.5-flash',

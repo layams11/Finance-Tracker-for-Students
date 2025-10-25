@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import { getSavingSuggestion } from '../services/geminiService';
 import type { Goal } from '../types';
 import { XIcon, SparklesIcon } from './Icons';
@@ -21,16 +21,31 @@ const AddGoalModal: React.FC<AddGoalModalProps> = ({ onClose, onAddGoal }) => {
   const handleSuggestion = useCallback(async () => {
     if (!targetAmount || !targetDate) return;
     setIsLoadingSuggestion(true);
-    const today = new Date();
-    const target = new Date(targetDate);
-    const months = (target.getFullYear() - today.getFullYear()) * 12 + (target.getMonth() - today.getMonth());
-    
-    if (months > 0) {
+    try {
+      const today = new Date();
+      const target = new Date(targetDate);
+      // Ensure months calculation is at least 1 to avoid division by zero
+      const months = Math.max((target.getFullYear() - today.getFullYear()) * 12 + (target.getMonth() - today.getMonth()), 1);
+      
       const suggestion = await getSavingSuggestion(parseFloat(targetAmount), months);
       setMonthlyContribution(suggestion.toString());
+    } catch (error) {
+        console.error("Failed to get suggestion:", error);
+    } finally {
+        setIsLoadingSuggestion(false);
     }
-    setIsLoadingSuggestion(false);
   }, [targetAmount, targetDate]);
+
+  useEffect(() => {
+    // Automatically fetch suggestion when both fields are filled
+    const timer = setTimeout(() => {
+        if (targetAmount && targetDate) {
+            handleSuggestion();
+        }
+    }, 500); // Debounce to avoid rapid firing
+    
+    return () => clearTimeout(timer);
+  }, [targetAmount, targetDate, handleSuggestion]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
