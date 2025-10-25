@@ -1,4 +1,3 @@
-
 // FIX: Removed circular import of 'Goal' type.
 export interface Goal {
   id: string;
@@ -11,13 +10,15 @@ export interface Goal {
 }
 
 export interface Transaction {
-  id: string;
-  goalId: string;
-  goalName: string;
-  goalEmoji: string;
+  id:string;
   type: 'deposit' | 'withdrawal';
   amount: number;
   date: string;
+  // Optional fields for goal-related transactions
+  goalId?: string;
+  goalName?: string;
+  goalEmoji?: string;
+  // Optional fields for withdrawal or general purpose
   reason?: string;
 }
 
@@ -38,3 +39,5 @@ export interface RecurringExpense {
   amount: number;
   dayOfMonth: number;
 }
+
+export type Page = 'home' | 'goals' | 'transactions' | 'insights' | 'settings';

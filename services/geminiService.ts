@@ -61,13 +61,13 @@ export const getFinancialInsights = async (
       - Spent on Expenses: ₹${totalExpenses.toFixed(2)}
       - Remaining Spending Money: ₹${remainingSpendingMoney.toFixed(2)}
       ---
-      - Contributed to Specific Savings Goals: ₹${contributionsThisMonth.toFixed(2)}
-      - Remaining in Personal Savings Pot: ₹${availablePersonalSavings.toFixed(2)}
+      - Contributed to Specific Savings Goals this month: ₹${contributionsThisMonth.toFixed(2)}
+      - Savings left to allocate from Pot: ₹${availablePersonalSavings.toFixed(2)}
     `;
 
   try {
     const prompt = `
-      You are a friendly financial advisor for a college student in India. Analyze the following financial data for the month (all amounts in INR). The student has a "Pay Yourself First" budget: they set a spending target, and the rest of their allowance goes into a personal savings pot for their goals.
+      You are a friendly financial advisor for a college student in India. Analyze the following financial data for the month (all amounts in INR). The student has a "Pay Yourself First" budget: they set a spending target, and the rest of their allowance automatically goes into a personal savings pot for their goals.
 
       Financial Overview:
       ${financialStatusSummary}
@@ -83,7 +83,7 @@ export const getFinancialInsights = async (
       1.  Look at the 'Remaining Spending Money'. If it's positive, praise them for staying within their target. If it's negative, they've overspent their target; be encouraging about getting back on track.
       2.  Identify their highest spending category from the breakdown.
       3.  Provide one *very specific and practical tip* to reduce spending in that category to help them meet their *spending target*. For example, instead of "spend less on food," suggest "try the university canteen for lunch twice a week instead of ordering out."
-      4.  Acknowledge their savings. If they contributed a good amount, commend their discipline. If contributions are low, gently suggest that sticking to their spending target will free up more money for their goals.
+      4.  Acknowledge their savings. If they contributed a good amount, commend their discipline. If contributions are low, gently suggest that sticking to their spending target will free up more money for their goals from the savings pot.
       5.  Keep the tone encouraging, not critical. Focus on the strategy of separating spending and saving.
     `;
     const response = await ai.models.generateContent({

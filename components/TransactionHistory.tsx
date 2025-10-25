@@ -1,6 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import type { Transaction, Goal } from '../types';
-import { HistoryIcon, ArrowUpIcon, ArrowDownIcon } from './Icons';
+import { HistoryIcon, ArrowUpIcon, ArrowDownIcon, WalletIcon } from './Icons';
 
 interface TransactionHistoryProps {
   transactions: Transaction[];
@@ -52,19 +52,21 @@ const TransactionHistory: React.FC<TransactionHistoryProps> = ({ transactions, g
   const SortButton: React.FC<{field: 'date' | 'amount', label: string}> = ({field, label}) => (
       <button onClick={() => handleSort(field)} className={`flex items-center space-x-1 p-2 rounded-md ${sortBy === field ? 'bg-slate-600' : 'bg-slate-700'} hover:bg-slate-600`}>
         <span>{label}</span>
-        {sortBy === field && (sortOrder === 'desc' ? <ArrowDownIcon className="h-4 w-4" /> : <ArrowUpIcon className="h-4 w-4" />)}
+        {sortBy === field && (sortOrder === 'desc' ? <ArrowDownIcon className="h-4 w-4" /> : <ArrowUp-Icon className="h-4 w-4" />)}
       </button>
   )
 
   return (
-    <div className="bg-slate-800/50 backdrop-blur-sm rounded-lg p-5 shadow-lg border border-slate-700">
-      <div className="flex items-center space-x-2 mb-4">
-        <HistoryIcon className="h-6 w-6 text-indigo-400" />
-        <h3 className="text-xl font-bold text-white">Transaction History</h3>
+    <div className="bg-slate-800/50 backdrop-blur-sm rounded-lg p-5 shadow-lg border border-slate-700/50">
+      <div className="flex items-center justify-between mb-4">
+        <div className="flex items-center space-x-2">
+            <HistoryIcon className="h-6 w-6 text-indigo-400" />
+            <h3 className="text-xl font-bold text-white">Transaction History</h3>
+        </div>
       </div>
 
       {/* Filters and Sorting */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-4 p-4 bg-slate-800 rounded-lg">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-4 p-4 bg-slate-900/40 rounded-lg">
         <div>
             <label className="block text-sm font-medium text-slate-300 mb-1">Filter by Goal</label>
             <select value={filterGoalId} onChange={e => setFilterGoalId(e.target.value)} className="w-full bg-slate-700 border-slate-600 rounded-md shadow-sm p-2 text-white">
@@ -92,23 +94,26 @@ const TransactionHistory: React.FC<TransactionHistoryProps> = ({ transactions, g
       {/* Transaction List */}
       <div className="space-y-3 max-h-96 overflow-y-auto pr-2">
         {filteredAndSortedTransactions.length > 0 ? (
-          filteredAndSortedTransactions.map(t => (
-            <div key={t.id} className="flex items-center justify-between bg-slate-900/50 p-3 rounded-lg">
-                <div className="flex items-center space-x-3">
-                    <span className="text-2xl">{t.goalEmoji}</span>
-                    <div>
-                        <p className="font-semibold">{t.goalName}</p>
-                        <p className="text-xs text-slate-400">
-                            {new Date(t.date).toLocaleDateString()}
-                            {t.type === 'withdrawal' && t.reason && ` - ${t.reason}`}
-                        </p>
-                    </div>
-                </div>
-                <div className={`font-bold text-lg ${t.type === 'deposit' ? 'text-green-400' : 'text-red-400'}`}>
-                    {t.type === 'deposit' ? '+' : '-'}₹{t.amount.toFixed(2)}
-                </div>
-            </div>
-          ))
+          filteredAndSortedTransactions.map(t => {
+            const isDeposit = t.type === 'deposit';
+            return (
+              <div key={t.id} className="flex items-center justify-between bg-slate-900/50 p-3 rounded-lg hover:bg-slate-900/80">
+                  <div className="flex items-center space-x-3">
+                      <span className="text-2xl">{t.goalEmoji || '❓'}</span>
+                      <div>
+                          <p className="font-semibold">{t.goalName || 'Unknown Goal'}</p>
+                          <p className="text-xs text-slate-400">
+                              {new Date(t.date).toLocaleDateString()}
+                              {t.reason && ` - ${t.reason}`}
+                          </p>
+                      </div>
+                  </div>
+                  <div className={`font-bold text-lg ${isDeposit ? 'text-green-400' : 'text-red-400'}`}>
+                      {isDeposit ? '+' : '-'}₹{t.amount.toFixed(2)}
+                  </div>
+              </div>
+            )
+          })
         ) : (
           <div className="text-center py-8 text-slate-500">
             <p>No transactions found.</p>
