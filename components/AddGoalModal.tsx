@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useEffect } from 'react';
+import React, { useState, useCallback } from 'react';
 import { getSavingSuggestion } from '../services/geminiService';
 import type { Goal } from '../types';
 import { XIcon, SparklesIcon } from './Icons';
@@ -35,17 +35,6 @@ const AddGoalModal: React.FC<AddGoalModalProps> = ({ onClose, onAddGoal }) => {
         setIsLoadingSuggestion(false);
     }
   }, [targetAmount, targetDate]);
-
-  useEffect(() => {
-    // Automatically fetch suggestion when both fields are filled
-    const timer = setTimeout(() => {
-        if (targetAmount && targetDate) {
-            handleSuggestion();
-        }
-    }, 500); // Debounce to avoid rapid firing
-    
-    return () => clearTimeout(timer);
-  }, [targetAmount, targetDate, handleSuggestion]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();

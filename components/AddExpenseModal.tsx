@@ -122,11 +122,17 @@ const AddExpenseModal: React.FC<AddExpenseModalProps> = ({ onClose, onAddExpense
                         />
                         <button type="button" onClick={handleAddUserToSplit} className="px-4 py-2 bg-indigo-600 text-white rounded-r-md">Add</button>
                     </div>
+                     <p className="text-xs text-slate-500 mt-1.5 px-1">SmartSave users will receive a request. Others will be tracked for manual settlement.</p>
                     <div className="mt-2 flex flex-wrap gap-2">
                         {splitWithParticipants.map(p => (
-                            <div key={p.username} className="bg-slate-700 rounded-full px-3 py-1 text-sm flex items-center">
-                                {p.username} {p.onPlatform ? '👤' : ''}
-                                <button type="button" onClick={() => handleRemoveUserFromSplit(p.username)} className="ml-2 text-slate-400 hover:text-white">
+                            <div key={p.username} className="bg-slate-700 rounded-full px-3 py-1 text-sm flex items-center gap-2">
+                                <span>{p.username}</span>
+                                {p.onPlatform ? (
+                                    <span className="text-xs bg-green-500/30 text-green-300 px-2 py-0.5 rounded-full font-medium">User</span>
+                                ) : (
+                                    <span className="text-xs bg-slate-600 text-slate-300 px-2 py-0.5 rounded-full font-medium">Contact</span>
+                                )}
+                                <button type="button" onClick={() => handleRemoveUserFromSplit(p.username)} className="ml-1 text-slate-400 hover:text-white">
                                     <XIcon className="h-3 w-3" />
                                 </button>
                             </div>
