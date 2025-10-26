@@ -8,10 +8,11 @@ interface GoalsPageProps {
   onWithdrawClick: (goal: Goal) => void;
   onContributeClick: (goalId: string) => void;
   onDeleteGoal: (goalId: string) => void;
+  onEditClick: (goal: Goal) => void;
   setIsAddGoalModalOpen: (isOpen: boolean) => void;
 }
 
-const GoalsPage: React.FC<GoalsPageProps> = ({ goals, onWithdrawClick, onContributeClick, onDeleteGoal, setIsAddGoalModalOpen }) => {
+const GoalsPage: React.FC<GoalsPageProps> = ({ goals, onWithdrawClick, onContributeClick, onDeleteGoal, onEditClick, setIsAddGoalModalOpen }) => {
   return (
     <div className="space-y-6 animate-fade-in">
         <div className="flex justify-between items-center">
@@ -25,7 +26,14 @@ const GoalsPage: React.FC<GoalsPageProps> = ({ goals, onWithdrawClick, onContrib
         {goals.length > 0 ? (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
             {goals.map(goal => (
-              <GoalCard key={goal.id} goal={goal} onWithdrawClick={onWithdrawClick} onContributeClick={onContributeClick} onDeleteGoal={onDeleteGoal} />
+              <GoalCard 
+                key={goal.id} 
+                goal={goal} 
+                onWithdrawClick={onWithdrawClick} 
+                onContributeClick={onContributeClick} 
+                onDeleteGoal={onDeleteGoal}
+                onEditClick={onEditClick}
+              />
             ))}
           </div>
         ) : (

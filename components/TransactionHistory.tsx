@@ -52,7 +52,8 @@ const TransactionHistory: React.FC<TransactionHistoryProps> = ({ transactions, g
   const SortButton: React.FC<{field: 'date' | 'amount', label: string}> = ({field, label}) => (
       <button onClick={() => handleSort(field)} className={`flex items-center space-x-1 p-2 rounded-md ${sortBy === field ? 'bg-slate-600' : 'bg-slate-700'} hover:bg-slate-600`}>
         <span>{label}</span>
-        {sortBy === field && (sortOrder === 'desc' ? <ArrowDownIcon className="h-4 w-4" /> : <ArrowUp-Icon className="h-4 w-4" />)}
+        {/* FIX: Corrected component name from ArrowUp-Icon to ArrowUpIcon */}
+        {sortBy === field && (sortOrder === 'desc' ? <ArrowDownIcon className="h-4 w-4" /> : <ArrowUpIcon className="h-4 w-4" />)}
       </button>
   )
 

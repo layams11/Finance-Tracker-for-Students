@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import type { RecurringExpense } from '../types';
 import RecurringExpensesManager from '../components/RecurringExpensesManager';
+import { LogoutIcon } from '../components/Icons';
 
 interface SettingsPageProps {
   monthlyAllowance: number;
@@ -8,6 +9,7 @@ interface SettingsPageProps {
   onUpdateBudget: (newAllowance: number, newSpendingTarget: number) => void;
   recurringExpenses: RecurringExpense[];
   onDeleteRecurringExpense: (id: string) => void;
+  onLogout: () => void;
 }
 
 const SettingsPage: React.FC<SettingsPageProps> = ({ 
@@ -15,7 +17,8 @@ const SettingsPage: React.FC<SettingsPageProps> = ({
     monthlySpendingTarget, 
     onUpdateBudget,
     recurringExpenses,
-    onDeleteRecurringExpense
+    onDeleteRecurringExpense,
+    onLogout
 }) => {
   const [allowance, setAllowance] = useState(monthlyAllowance.toString());
   const [spendingTarget, setSpendingTarget] = useState(monthlySpendingTarget.toString());
@@ -27,7 +30,16 @@ const SettingsPage: React.FC<SettingsPageProps> = ({
 
   return (
     <div className="space-y-8 animate-fade-in max-w-4xl mx-auto">
-        <h1 className="text-3xl font-bold text-white">Settings</h1>
+        <div className="flex justify-between items-center">
+            <h1 className="text-3xl font-bold text-white">Settings</h1>
+            <button
+              onClick={onLogout}
+              className="flex items-center space-x-2 bg-slate-700 hover:bg-red-600 text-white font-semibold py-2 px-4 rounded-lg transition-colors"
+            >
+              <LogoutIcon className="h-5 w-5" />
+              <span>Logout</span>
+            </button>
+        </div>
 
         <div className="bg-slate-800/50 backdrop-blur-sm rounded-lg p-6 shadow-lg border border-slate-700/50">
             <h2 className="text-2xl font-bold text-white mb-4">Update Your Budget</h2>

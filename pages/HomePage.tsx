@@ -18,6 +18,13 @@ interface HomePageProps {
     setIsAddExpenseModalOpen: (isOpen: boolean) => void;
     setIsAddGoalModalOpen: (isOpen: boolean) => void;
     expenses: Expense[];
+    onRefundExpense: (expenseId: string) => void;
+    onDeleteExpense: (expenseId: string) => void;
+    incomingSplitRequests: Array<Expense & { requester: string }>;
+    onAcceptSplit: (requester: string, expenseId: string) => void;
+    onDeclineSplit: (requester: string, expenseId: string) => void;
+    onManualSettle: (expenseId: string, username: string) => void;
+    currentUser: string;
 }
 
 const HomePage: React.FC<HomePageProps> = (props) => {
@@ -63,7 +70,17 @@ const HomePage: React.FC<HomePageProps> = (props) => {
         </div>
 
         <div>
-            <ExpenseTracker expenses={props.expenses} spendingTarget={props.monthlySpendingTarget} />
+            <ExpenseTracker 
+                expenses={props.expenses} 
+                spendingTarget={props.monthlySpendingTarget}
+                onRefundExpense={props.onRefundExpense}
+                onDeleteExpense={props.onDeleteExpense}
+                incomingSplitRequests={props.incomingSplitRequests}
+                onAcceptSplit={props.onAcceptSplit}
+                onDeclineSplit={props.onDeclineSplit}
+                onManualSettle={props.onManualSettle}
+                currentUser={props.currentUser}
+            />
         </div>
     </div>
   );

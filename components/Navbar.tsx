@@ -5,6 +5,7 @@ import { HomeIcon, TargetIcon, HistoryIcon, ChartBarIcon, CogIcon } from './Icon
 interface NavbarProps {
   currentPage: Page;
   setCurrentPage: (page: Page) => void;
+  currentUser: string;
 }
 
 const navItems = [
@@ -16,7 +17,7 @@ const navItems = [
 ] as const;
 
 
-const Navbar: React.FC<NavbarProps> = ({ currentPage, setCurrentPage }) => {
+const Navbar: React.FC<NavbarProps> = ({ currentPage, setCurrentPage, currentUser }) => {
   const NavButton: React.FC<{item: typeof navItems[number]}> = ({ item }) => {
     const isActive = currentPage === item.id;
     return (
@@ -47,7 +48,10 @@ const Navbar: React.FC<NavbarProps> = ({ currentPage, setCurrentPage }) => {
       <nav className="hidden md:flex flex-col w-64 bg-slate-900 p-4 space-y-2 border-r border-slate-800">
         <div className="flex items-center space-x-3 p-3 mb-4">
             <div className="w-10 h-10 bg-gradient-to-tr from-indigo-500 to-purple-500 rounded-full flex items-center justify-center font-bold text-white text-xl">S</div>
-            <h1 className="text-2xl font-bold text-white">SmartSave</h1>
+            <div>
+                <h1 className="text-2xl font-bold text-white">SmartSave</h1>
+                <p className="text-xs text-slate-400">Logged in as: {currentUser}</p>
+            </div>
         </div>
         {navItems.map(item => (
           <NavButton key={item.id} item={item} />

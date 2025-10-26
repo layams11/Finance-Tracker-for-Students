@@ -5,36 +5,95 @@ import GoalsPage from './pages/GoalsPage';
 import TransactionsPage from './pages/TransactionsPage';
 import InsightsPage from './pages/InsightsPage';
 import SettingsPage from './pages/SettingsPage';
+import LoginPage from './pages/LoginPage';
+import SignupPage from './pages/SignupPage';
 import AddGoalModal from './components/AddGoalModal';
+import EditGoalModal from './components/EditGoalModal';
 import WithdrawModal from './components/WithdrawModal';
 import AddExpenseModal from './components/AddExpenseModal';
 import useLocalStorage from './hooks/useLocalStorage';
 import type { Goal, Transaction, Expense, RecurringExpense, Page } from './types';
 import { getFinancialInsights } from './services/geminiService';
 
+interface UserData {
+    monthlyAllowance: number | null;
+    monthlySpendingTarget: number | null;
+    goals: Goal[];
+    transactions: Transaction[];
+    expenses: Expense[];
+    recurringExpenses: RecurringExpense[];
+    lastRecurringCheck: string;
+    cachedInsight: string;
+    lastInsightFetchTimestamp: number;
+}
+
+interface AppData {
+    users: Record<string, UserData>;
+}
+
+const initialUserData: UserData = {
+    monthlyAllowance: null,
+    monthlySpendingTarget: null,
+    goals: [],
+    transactions: [],
+    expenses: [],
+    recurringExpenses: [],
+    lastRecurringCheck: '',
+    cachedInsight: '',
+    lastInsightFetchTimestamp: 0,
+};
+
+// Start with dummy users if it's the first time running the app
+const initialAppData: AppData = {
+    users: {
+        user1: { ...initialUserData, monthlyAllowance: 20000, monthlySpendingTarget: 15000 },
+        user2: { ...initialUserData, monthlyAllowance: 25000, monthlySpendingTarget: 18000 },
+    }
+};
+
+
 const App: React.FC = () => {
-  const [monthlyAllowance, setMonthlyAllowance] = useLocalStorage<number | null>( 'monthlyAllowance', null);
-  const [monthlySpendingTarget, setMonthlySpendingTarget] = useLocalStorage<number | null>('monthlySpendingTarget', null);
-  
-  const [goals, setGoals] = useLocalStorage<Goal[]>('goals', []);
-  const [transactions, setTransactions] = useLocalStorage<Transaction[]>('transactions', []);
-  const [expenses, setExpenses] = useLocalStorage<Expense[]>('expenses', []);
-  const [recurringExpenses, setRecurringExpenses] = useLocalStorage<RecurringExpense[]>('recurringExpenses', []);
-  const [lastRecurringCheck, setLastRecurringCheck] = useLocalStorage<string>('lastRecurringCheck', '');
+  const [currentUser, setCurrentUser] = useLocalStorage<string | null>('currentUser', null);
+  const [appData, setAppData] = useLocalStorage<AppData>('appData', initialAppData);
   
   const [currentPage, setCurrentPage] = useState<Page>('home');
+  const [authPage, setAuthPage] = useState<'login' | 'signup'>('login');
   const [isAddGoalModalOpen, setIsAddGoalModalOpen] = useState(false);
+  const [isEditGoalModalOpen, setIsEditGoalModalOpen] = useState(false);
   const [isWithdrawModalOpen, setIsWithdrawModalOpen] = useState(false);
   const [isAddExpenseModalOpen, setIsAddExpenseModalOpen] = useState(false);
   const [selectedGoal, setSelectedGoal] = useState<Goal | null>(null);
 
-  const [insight, setInsight] = useState('');
   const [isInsightLoading, setIsInsightLoading] = useState(false);
 
+  const KNOWN_USERS = useMemo(() => Object.keys(appData.users), [appData.users]);
+  
+  const currentUserData = useMemo(() => {
+    if (currentUser && appData.users[currentUser]) {
+      return appData.users[currentUser];
+    }
+    return initialUserData;
+  }, [currentUser, appData]);
+  
+  const updateCurrentUserData = (newUserData: Partial<UserData>) => {
+      if (!currentUser) return;
+      setAppData(prevData => ({
+          ...prevData,
+          users: {
+              ...prevData.users,
+              [currentUser]: {
+                  ...prevData.users[currentUser],
+                  ...newUserData
+              }
+          }
+      }));
+  };
+
   useEffect(() => {
+    if (!currentUser) return;
     const currentMonth = new Date().toISOString().slice(0, 7); // "YYYY-MM"
-    if (lastRecurringCheck !== currentMonth) {
-      const newExpenses: Expense[] = recurringExpenses.map(re => ({
+    if (currentUserData.lastRecurringCheck !== currentMonth) {
+      const newExpenses: Expense[] = currentUserData.recurringExpenses.map(re => ({
         id: `${re.id}-${currentMonth}`,
         name: `${re.name} (Recurring)`,
         amount: re.amount,
@@ -42,50 +101,63 @@ const App: React.FC = () => {
         date: new Date().toISOString(),
       }));
 
-      const existingRecurringExpenseIds = expenses.map(e => e.id);
+      const existingRecurringExpenseIds = currentUserData.expenses.map(e => e.id);
       const uniqueNewExpenses = newExpenses.filter(ne => !existingRecurringExpenseIds.includes(ne.id));
       
       if (uniqueNewExpenses.length > 0) {
-        setExpenses(prev => [...prev, ...uniqueNewExpenses]);
+        updateCurrentUserData({ expenses: [...currentUserData.expenses, ...uniqueNewExpenses] });
       }
-      setLastRecurringCheck(currentMonth);
+      updateCurrentUserData({ lastRecurringCheck: currentMonth });
     }
-  }, [recurringExpenses, lastRecurringCheck, setLastRecurringCheck, expenses, setExpenses]);
+  }, [currentUser, currentUserData.recurringExpenses, currentUserData.lastRecurringCheck, currentUserData.expenses]);
 
   const totalExpenses = useMemo(() => {
-    return expenses.reduce((total, expense) => total + expense.amount, 0);
-  }, [expenses]);
+    return currentUserData.expenses
+      .filter(expense => !expense.isRefunded)
+      .reduce((total, expense) => total + (expense.myShare ?? expense.amount) , 0);
+  }, [currentUserData.expenses]);
 
   const contributionsThisMonth = useMemo(() => {
     const currentMonth = new Date().getMonth();
     const currentYear = new Date().getFullYear();
-    return transactions
+    return currentUserData.transactions
       .filter(t => {
         const tDate = new Date(t.date);
         return t.type === 'deposit' && tDate.getMonth() === currentMonth && tDate.getFullYear() === currentYear;
       })
       .reduce((total, t) => total + t.amount, 0);
-  }, [transactions]);
+  }, [currentUserData.transactions]);
   
-  const totalSavedInGoals = useMemo(() => goals.reduce((sum, goal) => sum + goal.savedAmount, 0), [goals]);
+  const totalSavedInGoals = useMemo(() => currentUserData.goals.reduce((sum, goal) => sum + goal.savedAmount, 0), [currentUserData.goals]);
   
-  const personalSavingsPot = (monthlyAllowance || 0) - (monthlySpendingTarget || 0);
+  const personalSavingsPot = (currentUserData.monthlyAllowance || 0) - (currentUserData.monthlySpendingTarget || 0);
   const savingsLeftToAllocate = personalSavingsPot - contributionsThisMonth;
-  const remainingSpendingMoney = (monthlySpendingTarget || 0) - totalExpenses;
+  const remainingSpendingMoney = (currentUserData.monthlySpendingTarget || 0) - totalExpenses;
   
-  const fetchInsights = useCallback(async () => {
-    if (monthlyAllowance === null || monthlySpendingTarget === null) return;
+  const fetchInsights = useCallback(async (forceRefresh = false) => {
+    if (currentUserData.monthlyAllowance === null || currentUserData.monthlySpendingTarget === null) return;
+
+    const now = Date.now();
+    const fiveMinutes = 5 * 60 * 1000;
+    // Only fetch if it's a force refresh, or if there's no cached insight, or if cache is older than 5 minutes
+    if (!forceRefresh && currentUserData.cachedInsight && (now - currentUserData.lastInsightFetchTimestamp < fiveMinutes)) {
+        return;
+    }
+
     setIsInsightLoading(true);
-    const newInsight = await getFinancialInsights(goals, transactions, expenses, monthlyAllowance, monthlySpendingTarget, contributionsThisMonth);
-    setInsight(newInsight);
+    const newInsight = await getFinancialInsights(currentUserData.goals, currentUserData.transactions, currentUserData.expenses, currentUserData.monthlyAllowance, currentUserData.monthlySpendingTarget, contributionsThisMonth);
+    updateCurrentUserData({
+        cachedInsight: newInsight,
+        lastInsightFetchTimestamp: Date.now(),
+    });
     setIsInsightLoading(false);
-  }, [goals, transactions, expenses, monthlyAllowance, monthlySpendingTarget, contributionsThisMonth]);
+  }, [currentUserData.goals, currentUserData.transactions, currentUserData.expenses, currentUserData.monthlyAllowance, currentUserData.monthlySpendingTarget, contributionsThisMonth, currentUserData.cachedInsight, currentUserData.lastInsightFetchTimestamp]);
 
   useEffect(() => {
-    if(monthlyAllowance !== null) {
+    if(currentUserData.monthlyAllowance !== null) {
         fetchInsights();
     }
-  }, [monthlyAllowance, goals, transactions, expenses, fetchInsights]); 
+  }, [currentUserData.monthlyAllowance, fetchInsights]); 
 
   const handleAddGoal = (newGoalData: Omit<Goal, 'id' | 'savedAmount'>) => {
     if (newGoalData.monthlyContribution > savingsLeftToAllocate) {
@@ -98,23 +170,30 @@ const App: React.FC = () => {
       id: new Date().toISOString(),
       savedAmount: 0,
     };
-    setGoals(prevGoals => [...prevGoals, newGoal]);
+    updateCurrentUserData({ goals: [...currentUserData.goals, newGoal] });
+  };
+
+  const handleEditGoal = (updatedGoal: Goal) => {
+    updateCurrentUserData({ goals: currentUserData.goals.map(g => g.id === updatedGoal.id ? updatedGoal : g) });
+    setIsEditGoalModalOpen(false);
+    setSelectedGoal(null);
   };
   
   const handleDeleteGoal = (goalId: string) => {
       if(window.confirm("Are you sure you want to delete this goal? This action cannot be undone.")) {
-          setGoals(prev => prev.filter(g => g.id !== goalId));
-          // Optional: also delete related transactions
-          // setTransactions(prev => prev.filter(t => t.goalId !== goalId));
+          updateCurrentUserData({ goals: currentUserData.goals.filter(g => g.id !== goalId) });
       }
   };
 
   const handleAddExpense = (newExpenseData: Omit<Expense, 'id'>, isRecurring: boolean, dayOfMonth?: number) => {
+      if (!currentUser) return;
+      
       const newExpense: Expense = {
           ...newExpenseData,
-          id: new Date().toISOString()
+          id: `${currentUser}-${new Date().toISOString()}`,
       };
-      setExpenses(prev => [...prev, newExpense]);
+      
+      updateCurrentUserData({ expenses: [...currentUserData.expenses, newExpense] });
 
       if (isRecurring && dayOfMonth) {
         const newRecurringExpense: RecurringExpense = {
@@ -124,14 +203,99 @@ const App: React.FC = () => {
             category: newExpenseData.category,
             dayOfMonth,
         };
-        setRecurringExpenses(prev => [...prev, newRecurringExpense]);
+        updateCurrentUserData({ recurringExpenses: [...currentUserData.recurringExpenses, newRecurringExpense] });
       }
   }
+  
+  const handleAcceptSplitRequest = (requesterName: string, expenseId: string) => {
+    if (!currentUser) return;
+    
+    setAppData(prevData => {
+        const newData = JSON.parse(JSON.stringify(prevData));
+        const requesterData = newData.users[requesterName];
+        const acceptorData = newData.users[currentUser];
+
+        if (!requesterData || !acceptorData) return prevData;
+
+        // Find original expense and update its status
+        const originalExpense = requesterData.expenses.find((e: Expense) => e.id === expenseId);
+        if (!originalExpense) return prevData;
+        
+        originalExpense.splitStatus[currentUser] = 'accepted';
+
+        // Create a new expense for the acceptor
+        const numPeople = (originalExpense.splitWith?.length ?? 0) + 1;
+        const shareAmount = originalExpense.amount / numPeople;
+
+        const newExpenseForAcceptor: Expense = {
+            id: `${currentUser}-${new Date().toISOString()}`,
+            name: `${originalExpense.name} (Split)`,
+            category: originalExpense.category,
+            amount: shareAmount,
+            myShare: shareAmount, // For an accepted request, amount and myshare are the same
+            date: new Date().toISOString(),
+            isSplitRequest: true,
+            requestedBy: requesterName,
+        };
+        
+        acceptorData.expenses = [...acceptorData.expenses, newExpenseForAcceptor];
+
+        return newData;
+    });
+    alert('Split request accepted!');
+  };
+
+  const handleDeclineSplitRequest = (requesterName: string, expenseId: string) => {
+      if (!currentUser) return;
+      setAppData(prevData => {
+          const newData = JSON.parse(JSON.stringify(prevData));
+          const requesterData = newData.users[requesterName];
+          if (!requesterData) return prevData;
+
+          const originalExpense = requesterData.expenses.find((e: Expense) => e.id === expenseId);
+          if (!originalExpense) return prevData;
+          
+          originalExpense.splitStatus[currentUser] = 'declined';
+          
+          return newData;
+      });
+      alert('Split request declined.');
+  };
 
   const handleDeleteRecurringExpense = (id: string) => {
     if(window.confirm("Are you sure you want to delete this recurring expense?")) {
-        setRecurringExpenses(prev => prev.filter(re => re.id !== id));
+        updateCurrentUserData({ recurringExpenses: currentUserData.recurringExpenses.filter(re => re.id !== id) });
     }
+  }
+  
+  const handleRefundExpense = (expenseId: string) => {
+    if (window.confirm("Marking this as refunded will remove it from your total expenses. Are you sure?")) {
+        updateCurrentUserData({ expenses: currentUserData.expenses.map(exp => exp.id === expenseId ? { ...exp, isRefunded: true } : exp) });
+    }
+  };
+
+  const handleDeleteExpense = (expenseId: string) => {
+    if (window.confirm("Are you sure you want to permanently delete this expense?")) {
+      updateCurrentUserData({ expenses: currentUserData.expenses.filter(exp => exp.id !== expenseId) });
+    }
+  };
+  
+  const handleManualSettle = (expenseId: string, username: string) => {
+      if (!currentUser) return;
+      setAppData(prevData => {
+          const newData = JSON.parse(JSON.stringify(prevData));
+          const userExpenses = newData.users[currentUser].expenses;
+          const expenseIndex = userExpenses.findIndex((e: Expense) => e.id === expenseId);
+          if (expenseIndex > -1) {
+              userExpenses[expenseIndex].splitStatus[username] = 'settled';
+          }
+          return newData;
+      });
+  };
+
+  const handleEditClick = (goal: Goal) => {
+    setSelectedGoal(goal);
+    setIsEditGoalModalOpen(true);
   }
 
   const handleWithdrawClick = (goal: Goal) => {
@@ -140,14 +304,13 @@ const App: React.FC = () => {
   };
 
   const handleWithdraw = (goalId: string, amount: number, reason: string) => {
-    const goal = goals.find(g => g.id === goalId);
+    const goal = currentUserData.goals.find(g => g.id === goalId);
     if (!goal) return;
 
-    setGoals(prevGoals =>
-      prevGoals.map(g =>
+    const newGoals = currentUserData.goals.map(g =>
         g.id === goalId ? { ...g, savedAmount: g.savedAmount - amount } : g
-      )
     );
+
     const newTransaction: Transaction = {
       id: new Date().toISOString(),
       goalId,
@@ -158,11 +321,11 @@ const App: React.FC = () => {
       date: new Date().toISOString(),
       type: 'withdrawal',
     };
-    setTransactions(prev => [...prev, newTransaction]);
+    updateCurrentUserData({ goals: newGoals, transactions: [...currentUserData.transactions, newTransaction] });
   };
   
   const handleContributeToGoal = (goalId: string) => {
-    const goal = goals.find(g => g.id === goalId);
+    const goal = currentUserData.goals.find(g => g.id === goalId);
     if (!goal) return;
 
     if (goal.savedAmount >= goal.targetAmount) {
@@ -182,11 +345,9 @@ const App: React.FC = () => {
             return;
         }
     }
-
-    setGoals(prevGoals =>
-      prevGoals.map(g =>
+    
+    const newGoals = currentUserData.goals.map(g =>
         g.id === goalId ? { ...g, savedAmount: g.savedAmount + amountToAdd } : g
-      )
     );
 
     const newTransaction: Transaction = {
@@ -198,7 +359,8 @@ const App: React.FC = () => {
       date: new Date().toISOString(),
       type: 'deposit',
     };
-    setTransactions(prev => [...prev, newTransaction]);
+    
+    updateCurrentUserData({ goals: newGoals, transactions: [...currentUserData.transactions, newTransaction] });
     alert(`₹${amountToAdd.toFixed(2)} has been added to your "${goal.name}" goal!`);
   };
   
@@ -207,62 +369,121 @@ const App: React.FC = () => {
           alert("Your spending target cannot be greater than your total allowance.");
           return;
       }
-      setMonthlyAllowance(newAllowance);
-      setMonthlySpendingTarget(newSpendingTarget);
+      updateCurrentUserData({ monthlyAllowance: newAllowance, monthlySpendingTarget: newSpendingTarget });
       alert("Budget updated successfully!");
   };
+
+  const handleLogin = (username: string, password_unused: string): boolean => {
+      if (appData.users[username]) {
+          setCurrentUser(username);
+          return true;
+      }
+      return false;
+  };
+
+  const handleSignup = (username: string, password_unused: string): boolean => {
+      if (appData.users[username]) {
+          return false; // User already exists
+      }
+      setAppData(prevData => ({
+          ...prevData,
+          users: {
+              ...prevData.users,
+              [username]: { ...initialUserData }
+          }
+      }));
+      setCurrentUser(username);
+      return true;
+  };
+
+  const handleLogout = () => {
+    setCurrentUser(null);
+    setCurrentPage('home');
+  }
+  
+  const incomingSplitRequests = useMemo(() => {
+    if (!currentUser) return [];
+    
+    const requests: Array<Expense & { requester: string }> = [];
+    Object.entries(appData.users).forEach(([username, userData]) => {
+        if (username !== currentUser) {
+            userData.expenses.forEach(expense => {
+                if (expense.splitWith?.some(p => p.username === currentUser) && expense.splitStatus?.[currentUser] === 'pending') {
+                    requests.push({ ...expense, requester: username });
+                }
+            });
+        }
+    });
+    return requests;
+  }, [appData, currentUser]);
 
   const renderPage = () => {
     switch (currentPage) {
       case 'home':
         return <HomePage 
                     remainingSpendingMoney={remainingSpendingMoney}
-                    monthlySpendingTarget={monthlySpendingTarget || 0}
+                    monthlySpendingTarget={currentUserData.monthlySpendingTarget || 0}
                     savingsLeftToAllocate={savingsLeftToAllocate}
                     personalSavingsPot={personalSavingsPot}
                     totalSavedInGoals={totalSavedInGoals}
-                    goals={goals}
-                    insight={insight}
-                    fetchInsights={fetchInsights}
+                    goals={currentUserData.goals}
+                    insight={currentUserData.cachedInsight}
+                    fetchInsights={() => fetchInsights(true)}
                     isInsightLoading={isInsightLoading}
                     setIsAddExpenseModalOpen={setIsAddExpenseModalOpen}
                     setIsAddGoalModalOpen={setIsAddGoalModalOpen}
-                    expenses={expenses}
+                    expenses={currentUserData.expenses}
+                    onRefundExpense={handleRefundExpense}
+                    onDeleteExpense={handleDeleteExpense}
+                    incomingSplitRequests={incomingSplitRequests}
+                    onAcceptSplit={handleAcceptSplitRequest}
+                    onDeclineSplit={handleDeclineSplitRequest}
+                    onManualSettle={handleManualSettle}
+                    currentUser={currentUser || ''}
                 />;
       case 'goals':
         return <GoalsPage 
-                    goals={goals} 
+                    goals={currentUserData.goals} 
                     onWithdrawClick={handleWithdrawClick} 
                     onContributeClick={handleContributeToGoal} 
                     onDeleteGoal={handleDeleteGoal}
+                    onEditClick={handleEditClick}
                     setIsAddGoalModalOpen={setIsAddGoalModalOpen}
                 />;
       case 'transactions':
-        return <TransactionsPage transactions={transactions} goals={goals} />;
+        return <TransactionsPage transactions={currentUserData.transactions} goals={currentUserData.goals} />;
       case 'insights':
-        return <InsightsPage expenses={expenses} goals={goals} insight={insight} isInsightLoading={isInsightLoading} onRefresh={fetchInsights} />;
+        return <InsightsPage expenses={currentUserData.expenses} goals={currentUserData.goals} insight={currentUserData.cachedInsight} isInsightLoading={isInsightLoading} onRefresh={() => fetchInsights(true)} />;
       case 'settings':
         return <SettingsPage 
-                    monthlyAllowance={monthlyAllowance || 0}
-                    monthlySpendingTarget={monthlySpendingTarget || 0}
+                    monthlyAllowance={currentUserData.monthlyAllowance || 0}
+                    monthlySpendingTarget={currentUserData.monthlySpendingTarget || 0}
                     onUpdateBudget={handleUpdateBudget}
-                    recurringExpenses={recurringExpenses}
+                    recurringExpenses={currentUserData.recurringExpenses}
                     onDeleteRecurringExpense={handleDeleteRecurringExpense}
+                    onLogout={handleLogout}
                 />;
       default:
         return <HomePage 
                     remainingSpendingMoney={remainingSpendingMoney}
-                    monthlySpendingTarget={monthlySpendingTarget || 0}
+                    monthlySpendingTarget={currentUserData.monthlySpendingTarget || 0}
                     savingsLeftToAllocate={savingsLeftToAllocate}
                     personalSavingsPot={personalSavingsPot}
                     totalSavedInGoals={totalSavedInGoals}
-                    goals={goals}
-                    insight={insight}
-                    fetchInsights={fetchInsights}
+                    goals={currentUserData.goals}
+                    insight={currentUserData.cachedInsight}
+                    fetchInsights={() => fetchInsights(true)}
                     isInsightLoading={isInsightLoading}
                     setIsAddExpenseModalOpen={setIsAddExpenseModalOpen}
                     setIsAddGoalModalOpen={setIsAddGoalModalOpen}
-                    expenses={expenses}
+                    expenses={currentUserData.expenses}
+                    onRefundExpense={handleRefundExpense}
+                    onDeleteExpense={handleDeleteExpense}
+                    incomingSplitRequests={incomingSplitRequests}
+                    onAcceptSplit={handleAcceptSplitRequest}
+                    onDeclineSplit={handleDeclineSplitRequest}
+                    onManualSettle={handleManualSettle}
+                    currentUser={currentUser || ''}
                 />;
     }
   };
@@ -284,8 +505,7 @@ const App: React.FC = () => {
                     alert("Your spending target cannot be greater than your total allowance.");
                     return;
                 }
-                setMonthlyAllowance(allowance);
-                setMonthlySpendingTarget(spendingTarget);
+                updateCurrentUserData({ monthlyAllowance: allowance, monthlySpendingTarget: spendingTarget });
             }} className="space-y-6">
                 <div>
                     <label className="text-lg text-slate-300 mb-2 block">Your total monthly allowance (in ₹)</label>
@@ -304,13 +524,21 @@ const App: React.FC = () => {
     </div>
   );
 
-  if (monthlyAllowance === null || monthlySpendingTarget === null) {
+  if (!currentUser) {
+      if (authPage === 'login') {
+          return <LoginPage onLogin={handleLogin} onSwitchToSignup={() => setAuthPage('signup')} />;
+      } else {
+          return <SignupPage onSignup={handleSignup} onSwitchToLogin={() => setAuthPage('login')} />;
+      }
+  }
+
+  if (currentUserData.monthlyAllowance === null || currentUserData.monthlySpendingTarget === null) {
     return <Onboarding />;
   }
 
   return (
     <div className="md:flex h-screen w-full bg-blue-950">
-      <Navbar currentPage={currentPage} setCurrentPage={setCurrentPage} />
+      <Navbar currentPage={currentPage} setCurrentPage={setCurrentPage} currentUser={currentUser} />
       <main className="flex-1 overflow-y-auto p-4 md:p-6 mb-16 md:mb-0">
           {renderPage()}
       </main>
@@ -318,11 +546,14 @@ const App: React.FC = () => {
       {isAddGoalModalOpen && (
         <AddGoalModal onClose={() => setIsAddGoalModalOpen(false)} onAddGoal={handleAddGoal} />
       )}
+      {isEditGoalModalOpen && selectedGoal && (
+        <EditGoalModal goal={selectedGoal} onClose={() => setIsEditGoalModalOpen(false)} onEditGoal={handleEditGoal} />
+      )}
       {isWithdrawModalOpen && selectedGoal && (
         <WithdrawModal goal={selectedGoal} onClose={() => setIsWithdrawModalOpen(false)} onWithdraw={handleWithdraw} />
       )}
       {isAddExpenseModalOpen && (
-        <AddExpenseModal onClose={() => setIsAddExpenseModalOpen(false)} onAddExpense={handleAddExpense} />
+        <AddExpenseModal onClose={() => setIsAddExpenseModalOpen(false)} onAddExpense={handleAddExpense} currentUser={currentUser} knownUsers={KNOWN_USERS} />
       )}
     </div>
   );

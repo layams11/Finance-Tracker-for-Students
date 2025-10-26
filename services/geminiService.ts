@@ -91,8 +91,11 @@ export const getFinancialInsights = async (
         contents: prompt
     });
     return response.text;
-  } catch (error) {
+  } catch (error: any) {
     console.error("Error getting financial insights:", error);
-    return "Could not retrieve AI insights at the moment. Keep tracking your finances!";
+    if (error.toString().includes("429")) {
+        return "You've been generating insights very frequently! To avoid hitting API limits, insights are refreshed periodically. Try again in a little bit.";
+    }
+    return "Could not retrieve AI insights at the moment. Please check your connection or API key and try again.";
   }
 };

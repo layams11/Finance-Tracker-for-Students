@@ -1,15 +1,16 @@
 import React from 'react';
 import type { Goal } from '../types';
-import { TrashIcon } from './Icons'; // Assuming you'll add a TrashIcon
+import { TrashIcon, PencilIcon } from './Icons';
 
 interface GoalCardProps {
   goal: Goal;
   onWithdrawClick: (goal: Goal) => void;
   onContributeClick: (goalId: string) => void;
   onDeleteGoal: (goalId: string) => void;
+  onEditClick: (goal: Goal) => void;
 }
 
-const GoalCard: React.FC<GoalCardProps> = ({ goal, onWithdrawClick, onContributeClick, onDeleteGoal }) => {
+const GoalCard: React.FC<GoalCardProps> = ({ goal, onWithdrawClick, onContributeClick, onDeleteGoal, onEditClick }) => {
   const progress = (goal.savedAmount / goal.targetAmount) * 100;
   const isCompleted = goal.savedAmount >= goal.targetAmount;
 
@@ -26,6 +27,9 @@ const GoalCard: React.FC<GoalCardProps> = ({ goal, onWithdrawClick, onContribute
             </div>
              <div className="flex items-center space-x-2">
                 {isCompleted && <span className="text-xs font-bold bg-green-500 text-white py-1 px-2 rounded-full">Completed!</span>}
+                <button onClick={() => onEditClick(goal)} className="text-slate-500 hover:text-blue-400">
+                    <PencilIcon className="w-5 h-5" />
+                </button>
                 <button onClick={() => onDeleteGoal(goal.id)} className="text-slate-500 hover:text-red-400">
                     <TrashIcon className="w-5 h-5" />
                 </button>
